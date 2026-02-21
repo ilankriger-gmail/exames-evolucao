@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Evolução dos Exames - Lina Deomedes Kriger</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #fff;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container { max-width: 1400px; margin: 0 auto; }
+    h1 { text-align: center; margin-bottom: 10px; font-size: 28px; }
+    .subtitle { text-align: center; color: #888; margin-bottom: 20px; font-size: 14px; }
+    .patient-info {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      margin-bottom: 30px;
+      padding: 20px;
+      background: rgba(16, 185, 129, 0.1);
+      border-radius: 16px;
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      flex-wrap: wrap;
+    }
+    .info-item { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+    .info-label { font-size: 12px; color: #888; }
+    .info-value { font-size: 16px; font-weight: 600; }
+    .blood-type { background: #EF4444; color: white; padding: 5px 15px; border-radius: 20px; font-size: 18px; font-weight: 700; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }
+    .card { background: rgba(255,255,255,0.05); border-radius: 16px; padding: 20px; border: 1px solid rgba(255,255,255,0.1); }
+    .card h3 { margin-bottom: 15px; font-size: 16px; color: #10B981; }
+    .chart-container { position: relative; height: 250px; }
+    .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 30px; }
+    .stat { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 15px; text-align: center; }
+    .stat .value { font-size: 24px; font-weight: 700; color: #10B981; }
+    .stat .label { font-size: 11px; color: #888; margin-top: 5px; }
+    .stat.warning .value { color: #F59E0B; }
+    .stat.danger .value { color: #EF4444; }
+    .stat.good .value { color: #10B981; }
+    .table-card { grid-column: 1 / -1; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { padding: 8px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    th { color: #10B981; font-weight: 600; }
+    .trend-up { color: #EF4444; }
+    .trend-down { color: #10B981; }
+    .trend-stable { color: #888; }
+    .section-title { font-size: 20px; margin: 30px 0 20px; color: #10B981; border-bottom: 1px solid rgba(16, 185, 129, 0.3); padding-bottom: 10px; }
+    .result-card { background: rgba(255,255,255,0.03); border-radius: 12px; padding: 15px; margin-bottom: 15px; border-left: 4px solid #10B981; }
+    .result-card.negative { border-left-color: #10B981; }
+    .result-card.positive { border-left-color: #EF4444; }
+    .result-card.pending { border-left-color: #F59E0B; }
+    .result-card h4 { font-size: 14px; margin-bottom: 8px; }
+    .result-card p { font-size: 12px; color: #aaa; margin: 4px 0; }
+    .result-card .result { font-size: 18px; font-weight: 700; margin-top: 10px; }
+    .result-card .result.neg { color: #10B981; }
+    .result-card .result.pos { color: #EF4444; }
+    .result-card .result.pend { color: #F59E0B; }
+    .liquor-table td { text-align: left; padding: 6px 12px; }
+    .liquor-table td:last-child { text-align: right; color: #888; font-size: 11px; }
+    .ref-normal { color: #10B981; }
+    .ref-high { color: #EF4444; }
+    .ref-low { color: #F59E0B; }
+    
+    /* AI Report Button */
+    .ai-btn {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%);
+      color: white;
+      border: none;
+      padding: 15px 25px;
+      border-radius: 50px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
+      transition: all 0.3s ease;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .ai-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 25px rgba(139, 92, 246, 0.5); }
+    .ai-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .ai-btn .spinner { display: none; width: 20px; height: 20px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
+    .ai-btn.loading .spinner { display: block; }
+    .ai-btn.loading .btn-text { display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.8);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 2000;
+      padding: 20px;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: #1a1a2e;
+      border-radius: 20px;
+      max-width: 800px;
+      width: 100%;
+      max-height: 80vh;
+      overflow-y: auto;
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .modal-header {
+      padding: 20px 25px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      background: #1a1a2e;
+      z-index: 1;
+    }
+    .modal-header h2 { font-size: 20px; display: flex; align-items: center; gap: 10px; }
+    .modal-close {
+      background: none;
+      border: none;
+      color: #888;
+      font-size: 28px;
+      cursor: pointer;
+      padding: 5px;
+      line-height: 1;
+    }
+    .modal-close:hover { color: #fff; }
+    .modal-body { padding: 25px; }
+    .modal-body h3 { color: #8B5CF6; margin: 20px 0 10px; font-size: 16px; }
+    .modal-body h3:first-child { margin-top: 0; }
+    .modal-body p, .modal-body li { line-height: 1.7; color: #ccc; margin: 8px 0; }
+    .modal-body ul { padding-left: 20px; }
+    .modal-body strong { color: #fff; }
+    .modal-body .highlight { background: rgba(16, 185, 129, 0.1); padding: 15px; border-radius: 10px; border-left: 4px solid #10B981; margin: 15px 0; }
+    .modal-body .warning { background: rgba(245, 158, 11, 0.1); border-left-color: #F59E0B; }
+    .modal-body .danger { background: rgba(239, 68, 68, 0.1); border-left-color: #EF4444; }
+    
+    /* History Section */
+    .history-section { margin-top: 30px; }
+    .history-section h2 { display: flex; align-items: center; gap: 10px; }
+    .history-item {
+      background: rgba(255,255,255,0.03);
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 1px solid rgba(139, 92, 246, 0.2);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .history-item:hover { border-color: rgba(139, 92, 246, 0.4); }
+    .history-info { flex: 1; min-width: 200px; }
+    .history-date { color: #8B5CF6; font-size: 13px; font-weight: 600; display: block; margin-bottom: 5px; }
+    .history-preview { color: #888; font-size: 12px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 500px; }
+    .history-actions { display: flex; gap: 8px; }
+    .history-btn {
+      padding: 8px 15px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    .history-btn.view { background: rgba(139, 92, 246, 0.2); color: #8B5CF6; }
+    .history-btn.view:hover { background: rgba(139, 92, 246, 0.3); }
+    .history-btn.delete { background: rgba(239, 68, 68, 0.1); color: #EF4444; }
+    .history-btn.delete:hover { background: rgba(239, 68, 68, 0.2); }
+    
+    /* Good news banner */
+    .good-news {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(16, 185, 129, 0.1) 100%);
+      border: 2px solid rgba(16, 185, 129, 0.4);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    .good-news h2 { color: #10B981; margin-bottom: 10px; font-size: 24px; }
+    .good-news p { color: #aaa; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 Evolução Completa dos Exames</h1>
+    <p class="subtitle">Lina Deomedes Kriger | 12/02 a 19/02/2026</p>
+    
+    <div class="patient-info">
+      <div class="info-item">
+        <span class="info-label">👶 Paciente</span>
+        <span class="info-value">Lina Deomedes Kriger</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">🩸 Tipo Sanguíneo</span>
+        <span class="info-value blood-type">AB+</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">📅 Nascimento</span>
+        <span class="info-value">11/02/2026</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">🏥 Convênio</span>
+        <span class="info-value">Unimed</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">👶 Idade Atual</span>
+        <span class="info-value">9 dias</span>
+      </div>
+    </div>
+    
+    <!-- BOAS NOTÍCIAS -->
+    <div class="good-news">
+      <h2>🎉 EXCELENTES NOTÍCIAS!</h2>
+      <p>Exames de 19/02 mostram recuperação significativa. PCR normalizado, bilirrubinas normais, leucócitos recuperando!</p>
+    </div>
+    
+    <!-- ALERTA IMPORTANTE -->
+    <div style="background: rgba(239, 68, 68, 0.1); border: 2px solid rgba(239, 68, 68, 0.4); border-radius: 16px; padding: 20px; margin-bottom: 30px;">
+      <h2 style="color: #EF4444; margin-bottom: 10px; font-size: 20px;">⚠️ HEMOCULTURA 14/02 POSITIVA</h2>
+      <p style="color: #ccc; font-size: 14px;"><strong>Staphylococcus epidermidis</strong> identificado | Tratamento com antibióticos sensíveis em andamento</p>
+      <p style="color: #888; font-size: 12px; margin-top: 8px;">Sensível a: Vancomicina, Oxacilina, Linezolida, Gentamicina, Clindamicina | Aguardando nova hemocultura (19/02) para confirmar clearance</p>
+    </div>
+    
+    <div class="summary">
+      <div class="stat good">
+        <div class="value">✅ 3,80</div>
+        <div class="label">PCR NORMAL! (≤6)</div>
+      </div>
+      <div class="stat good">
+        <div class="value">✅ 1,49</div>
+        <div class="label">Bilirrubina Total NORMAL</div>
+      </div>
+      <div class="stat good">
+        <div class="value">NEGATIVO</div>
+        <div class="label">Hemocultura</div>
+      </div>
+      <div class="stat good">
+        <div class="value">✅ 3,5</div>
+        <div class="label">Potássio NORMAL</div>
+      </div>
+      <div class="stat good">
+        <div class="value">7,44</div>
+        <div class="label">pH (normal)</div>
+      </div>
+      <div class="stat warning">
+        <div class="value">133</div>
+        <div class="label">Sódio (levemente baixo)</div>
+      </div>
+    </div>
+
+    <!-- CULTURAS E INFECÇÃO -->
+    <h2 class="section-title">🦠 Culturas e Marcadores de Infecção</h2>
+    <div class="grid">
+      <div class="result-card negative">
+        <h4>🧫 HEMOCULTURA (13/02)</h4>
+        <p>Coleta: 13/02/2026 19:29</p>
+        <p>Liberado: 18/02/2026 11:09</p>
+        <div class="result neg">✅ NEGATIVO</div>
+      </div>
+      
+      <div class="result-card positive">
+        <h4>🧫 HEMOCULTURA (14/02)</h4>
+        <p>Coleta: 14/02/2026 09:38</p>
+        <p>Liberado: 20/02/2026 12:34</p>
+        <div class="result pos">⚠️ POSITIVO</div>
+        <p><strong>Staphylococcus epidermidis</strong></p>
+        <p style="font-size: 11px; margin-top: 8px;">
+          ✅ Sensível: Clindamicina, Gentamicina, Linezolida, Oxacilina, Vancomicina, Sulfametoxazol/Trimetroprim<br>
+          ❌ Resistente: Eritromicina, Penicilina, Tetraciclina
+        </p>
+      </div>
+      
+      <div class="result-card pending">
+        <h4>🧫 HEMOCULTURA (19/02)</h4>
+        <p>Coleta: 19/02/2026 10:18</p>
+        <p>Requisição: 06080590</p>
+        <div class="result pend">⏳ EM ANDAMENTO</div>
+        <p>Previsão: 02/03/2026</p>
+      </div>
+      
+      <div class="result-card pending">
+        <h4>🧫 CULTURA LIQUOR</h4>
+        <p>Coleta: 18/02/2026 11:06</p>
+        <p>Requisição: 06077326</p>
+        <div class="result pend">⏳ EM ANDAMENTO</div>
+        <p>Previsão: 24/02/2026</p>
+      </div>
+      
+      <div class="result-card pending">
+        <h4>🧫 UROCULTURA (2 amostras)</h4>
+        <p>Coleta: 19/02/2026 09:40</p>
+        <p>Requisição: 06080298</p>
+        <div class="result pend">⏳ EM ANDAMENTO</div>
+        <p>Previsão: 25/02/2026</p>
+      </div>
+    </div>
+
+    <!-- PCR -->
+    <div class="card" style="margin-top: 20px;">
+      <h3>🔴 PCR - Proteína C Reativa (Marcador de Inflamação/Infecção)</h3>
+      <div class="chart-container">
+        <canvas id="chartPCR"></canvas>
+      </div>
+      <p style="font-size: 11px; color: #10B981; margin-top: 10px; font-weight: 600;">✅ PCR NORMALIZADO em 19/02! De 65,30 → 3,80 mg/L (queda de 94%)</p>
+    </div>
+
+    <!-- LÍQUOR -->
+    <h2 class="section-title">🧠 Análise do Líquor (18/02/2026)</h2>
+    <div class="card">
+      <h3>Rotina de Líquor - Coleta: 18/02/2026 11:06</h3>
+      <table class="liquor-table">
+        <tr>
+          <td>Aspecto antes centrifugar</td>
+          <td><strong>Límpido</strong></td>
+          <td>Ref: Límpido sem depósito</td>
+        </tr>
+        <tr>
+          <td>Aspecto após centrifugação</td>
+          <td><strong class="ref-high">Límpido com depósito</strong></td>
+          <td>Ref: Límpido sem depósito</td>
+        </tr>
+        <tr>
+          <td>Cor</td>
+          <td><strong class="ref-normal">Incolor</strong></td>
+          <td>Ref: Incolor</td>
+        </tr>
+        <tr>
+          <td>Contagem de Hemácias</td>
+          <td><strong class="ref-high">346,6 /mm³</strong></td>
+          <td>Ref: 0/mm³</td>
+        </tr>
+        <tr>
+          <td>Contagem de Leucócitos</td>
+          <td><strong class="ref-high">5,33 /mm³</strong></td>
+          <td>Ref: 0 a 5/mm³</td>
+        </tr>
+        <tr>
+          <td>Glicose</td>
+          <td><strong class="ref-normal">52,8 mg/dL</strong></td>
+          <td>Ref: 40,0 a 80,0 mg/dL</td>
+        </tr>
+        <tr>
+          <td>Cloreto</td>
+          <td><strong class="ref-normal">129 mEq/L</strong></td>
+          <td>Ref: 120,0 a 135,0 mEq/L</td>
+        </tr>
+        <tr>
+          <td>Proteínas</td>
+          <td><strong class="ref-high">57,5 mg/dL</strong></td>
+          <td>Ref: 15,0 a 45,0 mg/dL</td>
+        </tr>
+        <tr>
+          <td>Ácido Lático</td>
+          <td><strong class="ref-normal">13 mg/dL</strong></td>
+          <td>Ref: 4,5 a 19,8 mg/dL</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- GRÁFICOS PRINCIPAIS -->
+    <h2 class="section-title">📈 Evolução dos Indicadores</h2>
+    <div class="grid">
+      <!-- Bilirrubina -->
+      <div class="card">
+        <h3>🟡 Bilirrubinas (Icterícia Neonatal)</h3>
+        <div class="chart-container">
+          <canvas id="chartBili"></canvas>
+        </div>
+        <p style="font-size: 11px; color: #10B981; margin-top: 10px;">✅ Todas bilirrubinas NORMAIS em 19/02!</p>
+      </div>
+      
+      <!-- Hemograma -->
+      <div class="card">
+        <h3>🩸 Hemograma - Hemoglobina e Plaquetas</h3>
+        <div class="chart-container">
+          <canvas id="chartHemo"></canvas>
+        </div>
+      </div>
+      
+      <!-- Leucócitos -->
+      <div class="card">
+        <h3>⚪ Leucócitos (Série Branca)</h3>
+        <div class="chart-container">
+          <canvas id="chartLeuco"></canvas>
+        </div>
+        <p style="font-size: 11px; color: #10B981; margin-top: 10px;">✅ Leucócitos recuperando! De 6.400 → 9.100</p>
+      </div>
+      
+      <!-- Gasometria -->
+      <div class="card">
+        <h3>💨 Gasometria Arterial</h3>
+        <div class="chart-container">
+          <canvas id="chartGas"></canvas>
+        </div>
+      </div>
+      
+      <!-- Eletrólitos -->
+      <div class="card">
+        <h3>⚡ Eletrólitos (Sódio e Potássio)</h3>
+        <div class="chart-container">
+          <canvas id="chartEletro"></canvas>
+        </div>
+        <p style="font-size: 11px; color: #10B981; margin-top: 10px;">✅ Potássio normalizado! Sódio levemente baixo (133)</p>
+      </div>
+      
+      <!-- Cálcio e Glicose -->
+      <div class="card">
+        <h3>🦴 Cálcio, Magnésio e Glicose</h3>
+        <div class="chart-container">
+          <canvas id="chartCalGli"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABELA COMPLETA -->
+    <h2 class="section-title">📋 Tabela Completa de Resultados</h2>
+    <div class="card table-card">
+      <table>
+        <thead>
+          <tr>
+            <th>Exame</th>
+            <th>13/02<br>(3 dias)</th>
+            <th>14/02<br>(4 dias)</th>
+            <th>16/02<br>(6 dias)</th>
+            <th>19/02<br>(9 dias)</th>
+            <th>Referência</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="background: rgba(16, 185, 129, 0.15);">
+            <td><strong>PCR (mg/L)</strong></td>
+            <td>65,30</td>
+            <td>79,70</td>
+            <td>26,90</td>
+            <td><strong>3,80 ✅</strong></td>
+            <td>≤6,00</td>
+            <td class="trend-down">✅ NORMAL!</td>
+          </tr>
+          <tr style="background: rgba(16, 185, 129, 0.1);">
+            <td><strong>Bilirrubina Total (mg/dL)</strong></td>
+            <td>7,11</td>
+            <td>6,90</td>
+            <td>2,58</td>
+            <td><strong>1,49 ✅</strong></td>
+            <td>≤12,60*</td>
+            <td class="trend-down">✅ Normal</td>
+          </tr>
+          <tr>
+            <td>Bilirrubina Direta</td>
+            <td>0,53</td>
+            <td>0,67</td>
+            <td>0,99</td>
+            <td><strong>0,39 ✅</strong></td>
+            <td>≤0,40</td>
+            <td class="trend-down">✅ Normal</td>
+          </tr>
+          <tr>
+            <td>Bilirrubina Indireta</td>
+            <td>6,58</td>
+            <td>6,23</td>
+            <td>1,59</td>
+            <td><strong>1,10 ✅</strong></td>
+            <td>0,20-1,20</td>
+            <td class="trend-down">✅ Normal</td>
+          </tr>
+          <tr>
+            <td>Hemoglobina (g/dL)</td>
+            <td>15,6</td>
+            <td>15,0</td>
+            <td>14,1</td>
+            <td>13,5</td>
+            <td>12,5-20,5</td>
+            <td class="trend-stable">→ Normal</td>
+          </tr>
+          <tr>
+            <td>Hematócrito (%)</td>
+            <td>47,6</td>
+            <td>44,5</td>
+            <td>42,0</td>
+            <td>40,3</td>
+            <td>39,0-63,0</td>
+            <td class="trend-stable">→ Normal</td>
+          </tr>
+          <tr style="background: rgba(16, 185, 129, 0.1);">
+            <td>Leucócitos (/mm³)</td>
+            <td>12.300</td>
+            <td>7.700</td>
+            <td>6.400</td>
+            <td><strong>9.100 ✅</strong></td>
+            <td>5.000-21.000</td>
+            <td class="trend-down">✅ Recuperando</td>
+          </tr>
+          <tr>
+            <td>Neutrófilos (/mm³)</td>
+            <td>9.594</td>
+            <td>5.621</td>
+            <td>1.344</td>
+            <td><strong>3.367 ✅</strong></td>
+            <td>1.800-7.700</td>
+            <td class="trend-down">✅ Recuperando</td>
+          </tr>
+          <tr>
+            <td>Linfócitos (/mm³)</td>
+            <td>2.337</td>
+            <td>1.694</td>
+            <td>4.160</td>
+            <td>4.823</td>
+            <td>2.000-17.000</td>
+            <td class="trend-stable">→ Normal</td>
+          </tr>
+          <tr>
+            <td>Plaquetas (/mm³)</td>
+            <td>178.000</td>
+            <td>247.000</td>
+            <td>220.000</td>
+            <td><strong>357.000</strong></td>
+            <td>140.000-450.000</td>
+            <td class="trend-down">↑ Ótimo!</td>
+          </tr>
+          <tr style="background: rgba(59, 130, 246, 0.1);">
+            <td><strong>pH</strong></td>
+            <td>—</td>
+            <td>7,30</td>
+            <td>7,39</td>
+            <td><strong>7,44</strong></td>
+            <td>7,35-7,45</td>
+            <td class="trend-down">✅ Normal</td>
+          </tr>
+          <tr>
+            <td>pCO2 (mmHg)</td>
+            <td>—</td>
+            <td>37,7</td>
+            <td>37,5</td>
+            <td>39,1</td>
+            <td>35,0-45,0</td>
+            <td class="trend-stable">→ Normal</td>
+          </tr>
+          <tr>
+            <td>pO2 (mmHg)</td>
+            <td>—</td>
+            <td>74,0</td>
+            <td>67,0</td>
+            <td>69,1</td>
+            <td>83,0-108,0</td>
+            <td class="trend-up">⚠️ Baixo</td>
+          </tr>
+          <tr>
+            <td>HCO3 (mmol/L)</td>
+            <td>—</td>
+            <td>20,6</td>
+            <td>23,4</td>
+            <td>27,3</td>
+            <td>21,0-28,0</td>
+            <td class="trend-stable">→ Normal</td>
+          </tr>
+          <tr>
+            <td>Base Excess (mmol/L)</td>
+            <td>—</td>
+            <td>-4,0</td>
+            <td>-0,5</td>
+            <td>3,7</td>
+            <td>-3,0 a +3,0</td>
+            <td class="trend-up">⚠️ Leve ↑</td>
+          </tr>
+          <tr>
+            <td>Saturação O2 (%)</td>
+            <td>—</td>
+            <td>93,9</td>
+            <td>93,0</td>
+            <td>94,3</td>
+            <td>95-99</td>
+            <td class="trend-up">⚠️ Leve ↓</td>
+          </tr>
+          <tr style="background: rgba(245, 158, 11, 0.1);">
+            <td><strong>Sódio (mEq/L)</strong></td>
+            <td>—</td>
+            <td>140</td>
+            <td>135</td>
+            <td><strong>133</strong></td>
+            <td>135-145</td>
+            <td class="trend-up">⚠️ Baixo</td>
+          </tr>
+          <tr style="background: rgba(16, 185, 129, 0.1);">
+            <td><strong>Potássio (mEq/L)</strong></td>
+            <td>—</td>
+            <td>4,0</td>
+            <td>3,2</td>
+            <td><strong>3,5 ✅</strong></td>
+            <td>3,5-5,5</td>
+            <td class="trend-down">✅ Normal</td>
+          </tr>
+          <tr>
+            <td>Cálcio (mg/dL)</td>
+            <td>—</td>
+            <td>7,7</td>
+            <td>9,0</td>
+            <td>8,6</td>
+            <td>8,5-10,5</td>
+            <td class="trend-stable">→ Normal</td>
+          </tr>
+          <tr style="background: rgba(245, 158, 11, 0.1);">
+            <td>Magnésio (mg/dL)</td>
+            <td>—</td>
+            <td>2,00</td>
+            <td>—</td>
+            <td><strong>1,60</strong></td>
+            <td>1,7-2,5</td>
+            <td class="trend-up">⚠️ Baixo</td>
+          </tr>
+          <tr>
+            <td>Glicose (mg/dL)</td>
+            <td>—</td>
+            <td>67</td>
+            <td>82</td>
+            <td>95,2</td>
+            <td>&lt;100</td>
+            <td class="trend-stable">→ Normal</td>
+          </tr>
+          <tr>
+            <td>Tipo Sanguíneo</td>
+            <td colspan="4"><strong>AB+</strong></td>
+            <td>—</td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="font-size: 10px; color: #666; margin-top: 15px;">* Ref. Bilirrubina para neonato | Valores de referência ajustados por idade</p>
+    </div>
+
+    <!-- EXAMES PENDENTES -->
+    <h2 class="section-title">⏳ Exames Pendentes</h2>
+    <div class="grid">
+      <div class="result-card pending">
+        <h4>📋 Hemocultura (19/02)</h4>
+        <p>Requisição: 06080590</p>
+        <div class="result pend">⏳ EM ANDAMENTO</div>
+        <p>Previsão: 02/03/2026</p>
+      </div>
+      <div class="result-card pending">
+        <h4>📋 Urocultura + 2ª Amostra (19/02)</h4>
+        <p>Requisição: 06080298</p>
+        <div class="result pend">⏳ EM ANDAMENTO</div>
+        <p>Previsão: 25/02/2026</p>
+      </div>
+      <div class="result-card pending">
+        <h4>📋 Cultura Líquor + Antibiograma (18/02)</h4>
+        <p>Requisição: 06077326</p>
+        <div class="result pend">⏳ EM ANDAMENTO</div>
+        <p>Previsão: 24/02/2026</p>
+      </div>
+    </div>
+
+    <!-- HISTÓRICO DE RELATÓRIOS -->
+    <div class="history-section">
+      <h2 class="section-title">🤖 Relatórios IA Salvos</h2>
+      <div id="historyContainer">
+        <p style="color: #666; text-align: center;">Carregando...</p>
+      </div>
+    </div>
+
+    <p style="text-align: center; color: #666; margin-top: 40px; font-size: 11px;">
+      Última atualização: 20/02/2026 13:20 | Dashboard gerado automaticamente por Theo
+    </p>
+  </div>
+  
+  <!-- AI Report Button -->
+  <button class="ai-btn" onclick="generateReport()">
+    <span class="btn-text">🤖 Gerar Relatório IA</span>
+    <span class="spinner"></span>
+  </button>
+  
+  <!-- Modal -->
+  <div class="modal-overlay" id="reportModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>🤖 Relatório da IA</h2>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="reportContent">
+        <p>Gerando análise...</p>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    const dates4 = ['13/02', '14/02', '16/02', '19/02'];
+    const dates3gas = ['14/02', '16/02', '19/02'];
+    
+    const commonOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: true, labels: { color: '#fff', font: { size: 10 } } } },
+      scales: {
+        x: { ticks: { color: '#888' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: { ticks: { color: '#888' }, grid: { color: 'rgba(255,255,255,0.1)' } }
+      }
+    };
+    
+    // PCR
+    new Chart(document.getElementById('chartPCR'), {
+      type: 'line',
+      data: {
+        labels: dates4,
+        datasets: [
+          { label: 'PCR (mg/L)', data: [65.30, 79.70, 26.90, 3.80], borderColor: '#10B981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.3 },
+          { label: 'Limite (6 mg/L)', data: [6, 6, 6, 6], borderColor: '#EF4444', borderDash: [5, 5], pointRadius: 0 }
+        ]
+      },
+      options: commonOptions
+    });
+    
+    // Bilirrubina
+    new Chart(document.getElementById('chartBili'), {
+      type: 'line',
+      data: {
+        labels: dates4,
+        datasets: [
+          { label: 'Bili Total', data: [7.11, 6.90, 2.58, 1.49], borderColor: '#F59E0B', backgroundColor: 'rgba(245, 158, 11, 0.1)', fill: true, tension: 0.3 },
+          { label: 'Bili Direta', data: [0.53, 0.67, 0.99, 0.39], borderColor: '#8B5CF6', tension: 0.3 },
+          { label: 'Bili Indireta', data: [6.58, 6.23, 1.59, 1.10], borderColor: '#3B82F6', tension: 0.3 }
+        ]
+      },
+      options: commonOptions
+    });
+    
+    // Hemograma
+    new Chart(document.getElementById('chartHemo'), {
+      type: 'line',
+      data: {
+        labels: dates4,
+        datasets: [
+          { label: 'Hemoglobina (g/dL)', data: [15.6, 15.0, 14.1, 13.5], borderColor: '#EF4444', tension: 0.3, yAxisID: 'y' },
+          { label: 'Plaquetas (x1000)', data: [178, 247, 220, 357], borderColor: '#3B82F6', tension: 0.3, yAxisID: 'y1' }
+        ]
+      },
+      options: {
+        ...commonOptions,
+        scales: {
+          x: { ticks: { color: '#888' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+          y: { ticks: { color: '#888' }, grid: { color: 'rgba(255,255,255,0.1)' }, position: 'left' },
+          y1: { ticks: { color: '#888' }, position: 'right', grid: { drawOnChartArea: false } }
+        }
+      }
+    });
+    
+    // Leucócitos
+    new Chart(document.getElementById('chartLeuco'), {
+      type: 'line',
+      data: {
+        labels: dates4,
+        datasets: [
+          { label: 'Leucócitos Total', data: [12300, 7700, 6400, 9100], borderColor: '#fff', tension: 0.3 },
+          { label: 'Neutrófilos', data: [9594, 5621, 1344, 3367], borderColor: '#F59E0B', tension: 0.3 },
+          { label: 'Linfócitos', data: [2337, 1694, 4160, 4823], borderColor: '#8B5CF6', tension: 0.3 }
+        ]
+      },
+      options: commonOptions
+    });
+    
+    // Gasometria
+    new Chart(document.getElementById('chartGas'), {
+      type: 'line',
+      data: {
+        labels: dates3gas,
+        datasets: [
+          { label: 'pH (x10)', data: [73.0, 73.9, 74.4], borderColor: '#10B981', tension: 0.3 },
+          { label: 'Sat O2 (%)', data: [93.9, 93.0, 94.3], borderColor: '#3B82F6', tension: 0.3 },
+          { label: 'pO2 (mmHg)', data: [74, 67, 69.1], borderColor: '#F59E0B', tension: 0.3 }
+        ]
+      },
+      options: commonOptions
+    });
+    
+    // Eletrólitos
+    new Chart(document.getElementById('chartEletro'), {
+      type: 'line',
+      data: {
+        labels: dates3gas,
+        datasets: [
+          { label: 'Sódio (mEq/L)', data: [140, 135, 133], borderColor: '#3B82F6', tension: 0.3 },
+          { label: 'Potássio (mEq/L)', data: [4.0, 3.2, 3.5], borderColor: '#F59E0B', tension: 0.3 }
+        ]
+      },
+      options: {
+        ...commonOptions,
+        scales: {
+          ...commonOptions.scales,
+          y: { ...commonOptions.scales.y, min: 0, max: 150 }
+        }
+      }
+    });
+    
+    // Cálcio e Glicose
+    new Chart(document.getElementById('chartCalGli'), {
+      type: 'line',
+      data: {
+        labels: dates3gas,
+        datasets: [
+          { label: 'Cálcio (mg/dL)', data: [7.7, 9.0, 8.6], borderColor: '#8B5CF6', tension: 0.3 },
+          { label: 'Glicose (mg/dL)', data: [67, 82, 95.2], borderColor: '#10B981', tension: 0.3 },
+          { label: 'Magnésio (mg/dL)', data: [2.0, null, 1.6], borderColor: '#F59E0B', tension: 0.3 }
+        ]
+      },
+      options: commonOptions
+    });
+    
+    // AI Report Functions
+    const PERPLEXITY_API_KEY = ''; // Configure sua API key
+    
+    const examData = {
+      paciente: 'Lina Deomedes Kriger',
+      nascimento: '11/02/2026',
+      idadeAtual: '9 dias',
+      tipoSanguineo: 'AB+',
+      exames: {
+        PCR: { '13/02': 65.30, '14/02': 79.70, '16/02': 26.90, '19/02': 3.80, ref: '≤6 mg/L', tendencia: 'NORMALIZADO! Queda de 94%' },
+        BilirrubinaTotal: { '13/02': 7.11, '14/02': 6.90, '16/02': 2.58, '19/02': 1.49, ref: '≤12.60 mg/dL', tendencia: 'NORMAL' },
+        BilirrubinaDireta: { '13/02': 0.53, '14/02': 0.67, '16/02': 0.99, '19/02': 0.39, ref: '≤0.40 mg/dL', tendencia: 'NORMALIZADA!' },
+        BilirrubinaIndireta: { '13/02': 6.58, '14/02': 6.23, '16/02': 1.59, '19/02': 1.10, ref: '0.20-1.20 mg/dL', tendencia: 'NORMAL' },
+        Hemoglobina: { '13/02': 15.6, '14/02': 15.0, '16/02': 14.1, '19/02': 13.5, ref: '12.5-20.5 g/dL', tendencia: 'normal' },
+        Leucocitos: { '13/02': 12300, '14/02': 7700, '16/02': 6400, '19/02': 9100, ref: '5000-21000/mm³', tendencia: 'recuperando - NORMAL' },
+        Neutrofilos: { '13/02': 9594, '14/02': 5621, '16/02': 1344, '19/02': 3367, ref: '1800-7700/mm³', tendencia: 'recuperando - NORMAL' },
+        Plaquetas: { '13/02': 178000, '14/02': 247000, '16/02': 220000, '19/02': 357000, ref: '140000-450000/mm³', tendencia: 'ótimo - subindo' },
+        pH: { '14/02': 7.30, '16/02': 7.39, '19/02': 7.44, ref: '7.35-7.45', tendencia: 'NORMAL' },
+        pO2: { '14/02': 74, '16/02': 67, '19/02': 69.1, ref: '83-108 mmHg', tendencia: 'baixo - monitorar' },
+        SatO2: { '14/02': 93.9, '16/02': 93.0, '19/02': 94.3, ref: '95-99%', tendencia: 'levemente baixa' },
+        Sodio: { '14/02': 140, '16/02': 135, '19/02': 133, ref: '135-145 mEq/L', tendencia: 'baixo - atenção' },
+        Potassio: { '14/02': 4.0, '16/02': 3.2, '19/02': 3.5, ref: '3.5-5.5 mEq/L', tendencia: 'NORMALIZADO!' },
+        Calcio: { '14/02': 7.7, '16/02': 9.0, '19/02': 8.6, ref: '8.5-10.5 mg/dL', tendencia: 'normal' },
+        Magnesio: { '14/02': 2.0, '19/02': 1.6, ref: '1.7-2.5 mg/dL', tendencia: 'baixo - atenção' },
+        Glicose: { '14/02': 67, '16/02': 82, '19/02': 95.2, ref: '<100 mg/dL', tendencia: 'normal' },
+        BaseExcess: { '14/02': -4.0, '16/02': -0.5, '19/02': 3.7, ref: '-3 a +3 mmol/L', tendencia: 'levemente alto' }
+      },
+      culturas: {
+        hemocultura_13_02: { data: '13/02', resultado: 'NEGATIVO' },
+        hemocultura_14_02: { data: '14/02', resultado: 'POSITIVO - Staphylococcus epidermidis', antibiograma: { sensivel: ['Clindamicina', 'Gentamicina', 'Linezolida', 'Oxacilina', 'Vancomicina', 'Sulfametoxazol/Trimetroprim'], resistente: ['Eritromicina', 'Penicilina', 'Tetraciclina'] } },
+        hemocultura_19_02: { data: '19/02', resultado: 'EM ANDAMENTO', previsao: '02/03' },
+        culturaLiquor: { data: '18/02', resultado: 'EM ANDAMENTO', previsao: '24/02' },
+        urocultura: { data: '19/02', resultado: 'EM ANDAMENTO (2 amostras)', previsao: '25/02' }
+      },
+      liquor: {
+        data: '18/02',
+        aspecto: 'Límpido com depósito após centrifugação',
+        hemacias: '346.6/mm³ (ref: 0)',
+        leucocitos: '5.33/mm³ (ref: 0-5)',
+        glicose: '52.8 mg/dL (normal)',
+        proteinas: '57.5 mg/dL (elevada, ref: 15-45)',
+        acidoLatico: '13 mg/dL (normal)'
+      }
+    };
+    
+    async function generateReport() {
+      const btn = document.querySelector('.ai-btn');
+      btn.classList.add('loading');
+      btn.disabled = true;
+      
+      const prompt = `Você é um médico neonatologista experiente. Analise os dados laboratoriais deste recém-nascido e gere um relatório clínico completo em português brasileiro.
+
+DADOS DO PACIENTE:
+${JSON.stringify(examData, null, 2)}
+
+CONTEXTO IMPORTANTE: Os exames de 19/02 mostram melhora SIGNIFICATIVA:
+- PCR normalizado (de 65,30 para 3,80)
+- Todas bilirrubinas normais
+- Leucócitos e neutrófilos recuperando
+- Potássio normalizado
+
+Por favor, forneça:
+1. **RESUMO GERAL** - Estado geral do bebê baseado nos exames mais recentes (19/02)
+2. **PONTOS POSITIVOS** - O que melhorou significativamente
+3. **PONTOS DE ATENÇÃO** - O que ainda precisa monitoramento (sódio, magnésio, pO2)
+4. **ANÁLISE DETALHADA** - Interpretação de cada sistema (infeccioso, hepático, hematológico, metabólico)
+5. **RECOMENDAÇÕES** - Próximos passos sugeridos
+
+Use linguagem técnica mas acessível para familiares. Seja específico sobre os valores e suas implicações clínicas. Destaque as BOAS NOTÍCIAS!`;
+
+      try {
+        const response = await fetch('https://api.perplexity.ai/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'sonar',
+            messages: [
+              { role: 'system', content: 'Você é um médico neonatologista brasileiro experiente, especialista em interpretar exames de recém-nascidos.' },
+              { role: 'user', content: prompt }
+            ],
+            max_tokens: 2000,
+            temperature: 0.3
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const report = data.choices[0].message.content;
+        
+        // Save and display
+        const saved = saveReport(report);
+        document.getElementById('reportContent').innerHTML = `
+          <p style="color: #888; font-size: 12px; margin-bottom: 15px;">📅 Gerado em: ${saved.date} | ✅ Salvo automaticamente</p>
+          ${formatReport(report)}
+        `;
+        document.getElementById('reportModal').classList.add('active');
+        
+      } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('reportContent').innerHTML = `
+          <div class="highlight danger">
+            <strong>⚠️ Erro ao gerar relatório</strong>
+            <p>${error.message}</p>
+            <p>Verifique sua conexão e tente novamente.</p>
+          </div>
+        `;
+        document.getElementById('reportModal').classList.add('active');
+      } finally {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+      }
+    }
+    
+    function formatReport(text) {
+      return text
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^# (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^\d+\. \*\*(.+?)\*\*/gm, '<h3>$1</h3>')
+        .replace(/^- (.+)$/gm, '<li>$1</li>')
+        .replace(/(<li>.+<\/li>\n?)+/g, '<ul>$&</ul>')
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/^(?!<[hul])(.+)$/gm, '<p>$1</p>')
+        .replace(/<p><\/p>/g, '')
+        .replace(/✅|✓/g, '<span style="color: #10B981">✅</span>')
+        .replace(/⚠️|⚠/g, '<span style="color: #F59E0B">⚠️</span>')
+        .replace(/❌|✗/g, '<span style="color: #EF4444">❌</span>');
+    }
+    
+    function closeModal() {
+      document.getElementById('reportModal').classList.remove('active');
+    }
+    
+    document.getElementById('reportModal').addEventListener('click', (e) => {
+      if (e.target.id === 'reportModal') closeModal();
+    });
+    
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal();
+    });
+    
+    // ========== SUPABASE CONFIG ==========
+    const SUPABASE_URL = 'https://gsxanzgwstlpfvnqcmiu.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzeGFuemd3c3RscGZ2bnFjbWl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc2NjYyMDIsImV4cCI6MjA4MzI0MjIwMn0.OapNhZJbbeH0eEJWIU_zg4ihEvtxSC9rAG-dLBQCmvE';
+    
+    // ========== HISTÓRICO DE RELATÓRIOS (SUPABASE) ==========
+    
+    async function saveReport(report) {
+      const newReport = {
+        content: report,
+        patient_name: 'Lina Deomedes Kriger'
+      };
+      
+      try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/exam_reports`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+          },
+          body: JSON.stringify(newReport)
+        });
+        
+        if (!response.ok) {
+          console.error('Supabase save failed, using localStorage fallback');
+          return saveReportLocal(report);
+        }
+        
+        const data = await response.json();
+        await renderHistory();
+        return { id: data[0]?.id, date: new Date().toLocaleString('pt-BR'), content: report };
+      } catch (error) {
+        console.error('Supabase error:', error);
+        return saveReportLocal(report);
+      }
+    }
+    
+    // Fallback para localStorage
+    function saveReportLocal(report) {
+      const reports = JSON.parse(localStorage.getItem('examReports') || '[]');
+      const newReport = {
+        id: Date.now(),
+        date: new Date().toLocaleString('pt-BR'),
+        content: report,
+        local: true
+      };
+      reports.unshift(newReport);
+      if (reports.length > 10) reports.pop();
+      localStorage.setItem('examReports', JSON.stringify(reports));
+      renderHistory();
+      return newReport;
+    }
+    
+    async function getReports() {
+      try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/exam_reports?order=created_at.desc&limit=20`, {
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          }
+        });
+        
+        if (!response.ok) {
+          console.error('Supabase fetch failed, using localStorage');
+          return JSON.parse(localStorage.getItem('examReports') || '[]');
+        }
+        
+        const data = await response.json();
+        return data.map(r => ({
+          id: r.id,
+          date: new Date(r.created_at).toLocaleString('pt-BR'),
+          content: r.content,
+          cloud: true
+        }));
+      } catch (error) {
+        console.error('Supabase error:', error);
+        return JSON.parse(localStorage.getItem('examReports') || '[]');
+      }
+    }
+    
+    async function deleteReport(id) {
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/exam_reports?id=eq.${id}`, {
+          method: 'DELETE',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          }
+        });
+      } catch (error) {
+        console.error('Delete error:', error);
+      }
+      await renderHistory();
+    }
+    
+    async function viewReport(id) {
+      const reports = await getReports();
+      const report = reports.find(r => r.id === id);
+      if (report) {
+        document.getElementById('reportContent').innerHTML = `
+          <p style="color: #888; font-size: 12px; margin-bottom: 15px;">📅 Gerado em: ${report.date} ${report.cloud ? '☁️' : '💾'}</p>
+          ${formatReport(report.content)}
+        `;
+        document.getElementById('reportModal').classList.add('active');
+      }
+    }
+    
+    async function renderHistory() {
+      const container = document.getElementById('historyContainer');
+      container.innerHTML = '<p style="color: #666; text-align: center;">Carregando do Supabase...</p>';
+      
+      const reports = await getReports();
+      
+      if (reports.length === 0) {
+        container.innerHTML = '<p style="color: #666; text-align: center;">Nenhum relatório salvo ainda. Clique em "Gerar Relatório IA" para criar o primeiro.</p>';
+        return;
+      }
+      
+      container.innerHTML = reports.map(r => `
+        <div class="history-item">
+          <div class="history-info">
+            <span class="history-date">📅 ${r.date} ${r.cloud ? '☁️' : '💾'}</span>
+            <span class="history-preview">${r.content.substring(0, 100)}...</span>
+          </div>
+          <div class="history-actions">
+            <button onclick="viewReport(${r.id})" class="history-btn view">👁️ Ver</button>
+            <button onclick="deleteReport(${r.id})" class="history-btn delete">🗑️</button>
+          </div>
+        </div>
+      `).join('');
+    }
+    
+    document.addEventListener('DOMContentLoaded', renderHistory);
+  </script>
+</body>
+</html>
