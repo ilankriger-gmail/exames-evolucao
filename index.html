@@ -824,7 +824,15 @@
     });
     
     // AI Report Functions
-    const PERPLEXITY_API_KEY = ''; // Configure sua API key
+    function getPerplexityKey() {
+      let key = localStorage.getItem('perplexity_api_key');
+      if (!key) {
+        key = prompt('🔑 Digite sua API Key do Perplexity:\n\n(Obtenha em: https://www.perplexity.ai/settings/api)');
+        if (key) localStorage.setItem('perplexity_api_key', key.trim());
+      }
+      return key;
+    }
+    const PERPLEXITY_API_KEY = getPerplexityKey();
     
     const examData = {
       paciente: 'Lina Deomedes Kriger',
